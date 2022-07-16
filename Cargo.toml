@@ -1,8 +1,22 @@
 [package]
 name = "loudgainer"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+#clap = { version = "3", features = ["derive"] }
+gumdrop = { version = "0.8", features = ["default_expr"] }
+log = "0.4"
+thiserror = "1.0"
+dasp = { version = "0.11", features = ["signal"] }
+# Taggers
+metaflac = "0.2"
+id3 = "1"
+lofty = "0.7"
+# Fillers
+claxon = "0.4"
+symphonia = { version="0.5", features = ["mp3", "aac", "alac", "isomp4"] }
+# RG
+ebur128 = "0.1"
