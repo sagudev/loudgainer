@@ -10,12 +10,12 @@ edition = "2021"
 gumdrop = { version = "0.8", features = ["default_expr"] }
 log = "0.4"
 thiserror = "1.0"
-dasp = { version = "0.11", features = ["signal"] }
+infer = "0.9"
 # Taggers
 metaflac = "0.2"
 id3 = "1"
 lofty = "0.7"
-# Fillers
+# audio Fillers
 claxon = "0.4"
 symphonia = { version="0.5", features = ["mp3", "aac", "alac", "isomp4"] }
 # RG
