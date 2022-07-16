@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::exit, string::ParseError};
+use std::{process::exit, string::ParseError};
 
 use gumdrop::Options;
 
@@ -26,6 +26,7 @@ struct MyOptions {
     #[options(help = "Show version numbers")]
     version: bool,
 
+    // why is this even here?
     #[options(
         short = "r",
         help = "Calculate track gain only (default)",
@@ -50,14 +51,14 @@ struct MyOptions {
         help = "Avoid clipping; max. true peak level = n dBTP",
         meta = "n"
     )]
-    maxtpl: Option<i32>,
+    maxtpl: Option<f64>,
 
     #[options(
         short = "d",
         help = "Apply n dB/LU pre-gain value (-5 for -23 LUFS target)",
         meta = "n"
     )]
-    pregain: Option<i32>,
+    pregain: Option<f64>,
 
     #[options(
         short = "s",
@@ -135,8 +136,8 @@ impl std::str::FromStr for Tagmode {
     }
 }
 
-#[derive(Debug, Default)]
-enum Id3v2version {
+#[derive(Debug, Default, PartialEq)]
+pub enum Id3v2version {
     V3,
     #[default]
     V4,
@@ -154,7 +155,7 @@ impl std::str::FromStr for Id3v2version {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum OutputMode {
     /// output something human-readable
     Human,
@@ -164,7 +165,7 @@ pub enum OutputMode {
     New,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub enum Mode {
     /// like Write mode, with extra tags (reference, ranges).
     WriteExtended,
@@ -180,7 +181,7 @@ pub enum Mode {
 #[derive(Debug)]
 pub struct Opts {
     /// files to be processed
-    files: Vec<PathBuf>,
+    files: Vec<String>,
     /// output mode
     output: OutputMode,
     /// units: dB or LU
@@ -191,6 +192,20 @@ pub struct Opts {
     pre_gain: f64,
     /// dBTP; default for -k, as per EBU Tech 3343
     max_true_peak_level: f64,
+    /// prevent clipping
+    clip_prevention: bool,
+    /// warn if clipping happens
+    warn_clip: bool,
+    /// calculate album gain
+    do_album: bool,
+    /// force MP3 ID3v2 tags to lowercase?
+    lowercase: bool,
+    /// MP3 ID3v2: strip other tag types?
+    strip: bool,
+    /// MP3 ID3v2 version to write; can be 3 or 4
+    id3v2version: Id3v2version,
+    /// silent
+    quiet: bool,
 }
 
 pub fn parse_arguments() -> Opts {
@@ -202,13 +217,28 @@ pub fn parse_arguments() -> Opts {
         exit(0)
     };
 
-    //let mut pre_gain: 0.0,
-    //max_true_peak_level: -1.0,
+    let mut no_clip = opts.noclip;
+
+    let pre_gain = opts.pregain.unwrap_or(0.0);
+    if !pre_gain.is_finite() {
+        panic!("Invalid pregain value (dB/LU)");
+    }
+    let max_true_peak_level = if let Some(maxptl) = opts.maxtpl {
+        no_clip = true;
+        if !maxptl.is_finite() {
+            panic!("Invalid max. true peak level (dBTP)");
+        }
+        maxptl
+    } else {
+        -1.0
+    };
 
     Opts {
-        pre_gain: 0.0,
-        max_true_peak_level: -1.0,
-        files: opts.files.into_iter().map(|x| x.into()).collect(),
+        pre_gain,
+        max_true_peak_level,
+        warn_clip: !opts.clip,
+        clip_prevention: no_clip,
+        files: opts.files,
         output: if opts.output {
             OutputMode::Old
         } else if opts.output_new {
@@ -228,5 +258,10 @@ pub fn parse_arguments() -> Opts {
             Tagmode::L => Mode::Write,
             Tagmode::S => Mode::Noop,
         },
+        do_album: opts.album,
+        lowercase: opts.lowercase,
+        strip: opts.striptags,
+        id3v2version: opts.id3v2version,
+        quiet: opts.quiet,
     }
 }
