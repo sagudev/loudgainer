@@ -1,6 +1,7 @@
 use std::{fs::File, path::Path};
 
 use ebur128::{EbuR128, Error, Mode};
+use log::warn;
 
 use crate::audio::Audi;
 
@@ -28,6 +29,27 @@ impl ReplayGain {
         );
         println!("Gain: {:8.2} {unit}", self.gain)
     }
+
+    /// Detect clip and prevent it if requested
+    pub fn clipper(&self, max_true_peak_level: f64, warn: bool, prevent: bool) -> Self {
+        let peak_limit = dbtp_to_lufs(max_true_peak_level);
+        // new peak after gain
+        let new_peak = dbtp_to_lufs(self.gain) * self.peak;
+
+        if new_peak > peak_limit {
+            if prevent {
+                let new_new_peak = new_peak.min(peak_limit);
+                return Self {
+                    gain: self.gain - lufs_to_dbtp(new_peak / new_new_peak),
+                    ..*self
+                };
+            } else if warn {
+                warn!("The track will clip!");
+            }
+        }
+
+        *self
+    }
 }
 
 impl std::fmt::Display for ReplayGain {
@@ -50,10 +72,6 @@ pub fn track_rg<P: AsRef<Path>>(path: P, pregain: f64) -> Result<(ReplayGain, Eb
 
     let audi = Audi::from_path(path);
 
-    // loudgain defaults
-    // https://github.com/Moonbase59/loudgain/blob/master/src/loudgain.c#L167
-    let max_true_peak_level = -1.0; // dBTP; as per EBU Tech 3343
-
     // prepare ebur128
     let mut e = EbuR128::new(
         audi.channels,
@@ -75,16 +93,7 @@ pub fn track_rg<P: AsRef<Path>>(path: P, pregain: f64) -> Result<(ReplayGain, Eb
         .map(|i| e.true_peak(i).unwrap())
         .reduce(f64::max)
         .unwrap();
-    /*
-    // clipping prevention on
-    // peak limit
-    let n_peak = dbtp_to_lufs(max_true_peak_level);
-    // track peak after gain
-    let n_gain = dbtp_to_lufs(gain) * peak;
-    if n_gain > n_peak {
-        gain -= lufs_to_dbtp(n_gain / n_gain.min(n_peak));
-    }
-    */
+
     Ok((
         ReplayGain {
             gain: lufs_to_rg(global) + pregain,
