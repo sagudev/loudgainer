@@ -1,13 +1,11 @@
-use std::{
-    fs::File,
-    io::{Read, Seek},
-};
+use std::path::Path;
+
+use ffmpeg_next as ffmpeg;
 
 use log::warn;
 use symphonia::core::{
     audio::{AudioBufferRef, SampleBuffer, SignalSpec},
     codecs::DecoderOptions,
-    conv::IntoSample,
     formats::FormatOptions,
     io::MediaSourceStream,
     meta::MetadataOptions,
@@ -16,8 +14,6 @@ use symphonia::core::{
 };
 
 pub enum Audio {
-    //isnt realy supported in rg
-    //S8(Vec<i8>),
     S16(Vec<i16>),
     S32(Vec<i32>),
     F32(Vec<f32>),
@@ -25,36 +21,12 @@ pub enum Audio {
 }
 
 impl Audio {
-    pub fn as_audio_ref(&'_ self) -> AudioRef<'_> {
-        match self {
-            Audio::S16(x) => AudioRef::S16(x),
-            Audio::S32(x) => AudioRef::S32(x),
-            Audio::F32(x) => AudioRef::F32(x),
-            Audio::F64(x) => AudioRef::F64(x),
-        }
-    }
-
-    pub(crate) fn extend_from_slice(&mut self, samples: AudioRef) {
+    fn extend_from_slice(&mut self, samples: AudioRef) {
         match self {
             Audio::S16(x) => x.extend_from_slice(samples.get_i16().unwrap()),
             Audio::S32(x) => x.extend_from_slice(samples.get_i32().unwrap()),
             Audio::F32(x) => x.extend_from_slice(samples.get_f32().unwrap()),
             Audio::F64(x) => x.extend_from_slice(samples.get_f64().unwrap()),
-        }
-    }
-
-    pub fn to<T>(&self) -> Vec<T>
-    where
-        T: symphonia::core::conv::FromSample<i16>,
-        T: symphonia::core::conv::FromSample<i32>,
-        T: symphonia::core::conv::FromSample<f32>,
-        T: symphonia::core::conv::FromSample<f64>,
-    {
-        match self {
-            Audio::S16(v) => v.iter().map(|x| (*x).into_sample()).collect(),
-            Audio::S32(v) => v.iter().map(|x| (*x).into_sample()).collect(),
-            Audio::F32(v) => v.iter().map(|x| (*x).into_sample()).collect(),
-            Audio::F64(v) => v.iter().map(|x| (*x).into_sample()).collect(),
         }
     }
 }
@@ -113,21 +85,6 @@ impl<'a> AudioRef<'a> {
             _ => None,
         }
     }
-
-    pub fn to<T>(&self) -> Vec<T>
-    where
-        T: symphonia::core::conv::FromSample<i16>,
-        T: symphonia::core::conv::FromSample<i32>,
-        T: symphonia::core::conv::FromSample<f32>,
-        T: symphonia::core::conv::FromSample<f64>,
-    {
-        match *self {
-            Self::S16(v) => v.iter().map(|x| (*x).into_sample()).collect(),
-            Self::S32(v) => v.iter().map(|x| (*x).into_sample()).collect(),
-            Self::F32(v) => v.iter().map(|x| (*x).into_sample()).collect(),
-            Self::F64(v) => v.iter().map(|x| (*x).into_sample()).collect(),
-        }
-    }
 }
 
 impl<'a> AudioRef<'a> {
@@ -154,24 +111,19 @@ pub struct Audi {
 }
 
 impl Audi {
-    pub fn from_file(mut file: File) -> Self {
-        let mut buf = [0; 10];
-        file.read_exact(&mut buf).unwrap();
-        file.rewind().unwrap();
-        if let Some(kind) = infer::get(&buf) {
-            if kind.extension() == "flac" {
-                return Self::from_flac_file(file);
-            } else if kind.matcher_type() == infer::MatcherType::Audio {
-                return Self::from_generic_file(file);
-            }
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Self {
+        if path.as_ref().extension().unwrap() == "flac" {
+            return Self::from_flac_file(path);
         }
-
         warn!("Fallback to generic Audio reader");
-        Self::from_generic_file(file)
+        match Self::from_generic_file(path.as_ref()) {
+            Ok(x) => x,
+            Err(_) => Self::from_ffmpeg(path),
+        }
     }
 
-    fn from_flac_file(file: File) -> Self {
-        let mut r = claxon::FlacReader::new(file).unwrap();
+    fn from_flac_file<P: AsRef<Path>>(path: P) -> Self {
+        let mut r = claxon::FlacReader::open(path).unwrap();
         let streaminfo = r.streaminfo();
         let bits = streaminfo.bits_per_sample as u8;
         let audio = match bits {
@@ -187,29 +139,31 @@ impl Audi {
         }
     }
 
-    fn from_generic_file(file: File) -> Self {
+    fn from_generic_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
+        // Open the media source.
+        let file = std::fs::File::open(path.as_ref())?;
+
         // Create the media source stream.
         let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
         // Create a probe hint using the file's extension. [Optional]
-        let hint = Hint::new();
+        let mut hint = Hint::new();
+        hint.with_extension(path.as_ref().extension().unwrap().to_str().unwrap());
 
         // Use the default options for metadata and format readers.
         let meta_opts: MetadataOptions = Default::default();
         let fmt_opts: FormatOptions = Default::default();
 
         // Probe the media source.
-        let mut probed = symphonia::default::get_probe()
-            .format(&hint, mss, &fmt_opts, &meta_opts)
-            .unwrap();
+        let mut probed =
+            symphonia::default::get_probe().format(&hint, mss, &fmt_opts, &meta_opts)?;
         let track = probed.format.default_track().unwrap();
         let track_id = track.id;
         let decode_opts = DecoderOptions { verify: true };
 
         // Create a decoder for the track.
-        let mut decoder = symphonia::default::get_codecs()
-            .make(&track.codec_params, &decode_opts)
-            .unwrap();
+        let mut decoder =
+            symphonia::default::get_codecs().make(&track.codec_params, &decode_opts)?;
         let mut sample_buf = None;
         let mut audio: Option<Audio> = None;
 
@@ -220,7 +174,7 @@ impl Audi {
             }
 
             // Decode the packet into audio samples, ignoring any decode errors.
-            let audio_buf = decoder.decode(&packet).unwrap();
+            let audio_buf = decoder.decode(&packet)?;
             // If this is the *first* decoded packet, create a sample buffer matching the
             // decoded audio buffer format.
             if sample_buf.is_none() {
@@ -249,12 +203,25 @@ impl Audi {
 
         let streaminfo = &probed.format.default_track().unwrap().codec_params;
 
-        Audi {
+        Ok(Audi {
             audio: audio.unwrap(),
             channels: streaminfo.channels.unwrap().count() as u32,
             sample_rate: streaminfo.sample_rate.unwrap(),
             bits: streaminfo.bits_per_sample.unwrap_or(0) as u8,
-        }
+        })
+    }
+
+    fn from_ffmpeg<P: AsRef<Path>>(path: P) -> Self {
+        ffmpeg::init().unwrap();
+        ffmpeg::log::set_level(ffmpeg::log::Level::Quiet);
+        let mut format = ffmpeg::format::input(&path).unwrap();
+        todo!();
+        /*Audi {
+            audio: audio.unwrap(),
+            channels: streaminfo.channels.unwrap().count() as u32,
+            sample_rate: streaminfo.sample_rate.unwrap(),
+            bits: streaminfo.bits_per_sample.unwrap_or(0) as u8,
+        }*/
     }
 }
 

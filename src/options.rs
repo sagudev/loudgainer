@@ -181,31 +181,31 @@ pub enum Mode {
 #[derive(Debug)]
 pub struct Opts {
     /// files to be processed
-    files: Vec<String>,
+    pub files: Vec<String>,
     /// output mode
-    output: OutputMode,
+    pub output: OutputMode,
     /// units: dB or LU
-    units: String,
+    pub units: String,
     /// Working Mode (cmd)
-    mode: Mode,
+    pub mode: Mode,
     /// pre-gain
-    pre_gain: f64,
+    pub pre_gain: f64,
     /// dBTP; default for -k, as per EBU Tech 3343
-    max_true_peak_level: f64,
+    pub max_true_peak_level: f64,
     /// prevent clipping
-    clip_prevention: bool,
+    pub clip_prevention: bool,
     /// warn if clipping happens
-    warn_clip: bool,
+    pub warn_clip: bool,
     /// calculate album gain
-    do_album: bool,
+    pub do_album: bool,
     /// force MP3 ID3v2 tags to lowercase?
-    lowercase: bool,
+    pub lowercase: bool,
     /// MP3 ID3v2: strip other tag types?
-    strip: bool,
+    pub strip: bool,
     /// MP3 ID3v2 version to write; can be 3 or 4
-    id3v2version: Id3v2version,
+    pub id3v2version: Id3v2version,
     /// silent
-    quiet: bool,
+    pub quiet: bool,
 }
 
 pub fn parse_arguments() -> Opts {

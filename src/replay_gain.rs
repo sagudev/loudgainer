@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::{fs::File, path::Path};
 
 use ebur128::{EbuR128, Error, Mode};
 
@@ -45,10 +45,10 @@ impl std::fmt::Display for ReplayGain {
 }
 
 /// Calculates ReplayGain(2) with -18.00 LUFS
-pub fn track_rg(file: File, pregain: f64) -> Result<(ReplayGain, EbuR128), Error> {
+pub fn track_rg<P: AsRef<Path>>(path: P, pregain: f64) -> Result<(ReplayGain, EbuR128), Error> {
     use crate::audio::Audio;
 
-    let audi = Audi::from_file(file);
+    let audi = Audi::from_path(path);
 
     // loudgain defaults
     // https://github.com/Moonbase59/loudgain/blob/master/src/loudgain.c#L167
