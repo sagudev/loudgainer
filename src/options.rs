@@ -166,6 +166,12 @@ pub enum OutputMode {
     New,
 }
 
+impl OutputMode {
+    pub fn is_human(&self) -> bool {
+        *self == OutputMode::Human
+    }
+}
+
 #[derive(Debug, Default, PartialEq)]
 pub enum Mode {
     /// like Write mode, with extra tags (reference, ranges).

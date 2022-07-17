@@ -1,4 +1,3 @@
-use std::fs::File;
 use std::path::Path;
 
 use ebur128::{EbuR128, Error, Mode};
@@ -20,7 +19,7 @@ pub struct ReplayGain {
 }
 
 impl ReplayGain {
-    fn display(&self, unit: String) {
+    pub fn display(&self, unit: String) {
         println!("Loudness: {:8.2} LUFS", self.loudness);
         println!("Range: {:8.2} {unit}", self.loudness_range);
         println!(

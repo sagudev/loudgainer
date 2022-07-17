@@ -12,6 +12,12 @@ fn main() {
     let opts = options::parse_arguments();
     debug!("{:#?}", opts);
 
+    match opts.output {
+        options::OutputMode::Human => {println!("Scanning all files.")},
+        options::OutputMode::Old => println!("File\tMP3 gain\tdB gain\tMax Amplitude\tMax global_gain\tMin global_gain"),
+        options::OutputMode::New => println!("File\tLoudness\tRange\tTrue_Peak\tTrue_Peak_dBTP\tReference\tWill_clip\tClip_prevent\tGain\tNew_Peak\tNew_Peak_dBTP"),
+    };
+
     let tracks: Vec<(ReplayGain, EbuR128)> = opts
         .files
         .iter()
@@ -28,18 +34,18 @@ fn main() {
         None
     };
 
-    let tracks = tracks.iter().map(|(rg, _)| {
-        rg.clipper(
+    for (path, (rg, _)) in opts.files.iter().zip(tracks) {
+        // check clipping and maybe prevent it
+        let rg = rg.clipper(
             opts.max_true_peak_level,
             opts.warn_clip,
             opts.clip_prevention,
-        )
-    });
+        );
 
-    match opts.mode {
-        options::Mode::WriteExtended => todo!(),
-        options::Mode::Write => opts.files.iter().zip(tracks).for_each(|(path, rg)| {
-            tagger::write_tags(
+        // do requested stuff on file
+        match opts.mode {
+            options::Mode::WriteExtended => todo!(),
+            options::Mode::Write => tagger::write_tags(
                 path,
                 rg,
                 album,
@@ -48,9 +54,15 @@ fn main() {
                 opts.lowercase,
                 opts.strip,
                 opts.id3v2version,
-            )
-        }),
-        options::Mode::Noop => { /* no-op */ }
-        options::Mode::Delete => todo!(),
+            ),
+            options::Mode::Noop => { /* no-op */ }
+            options::Mode::Delete => todo!(),
+        }
+
+        match opts.output {
+            options::OutputMode::Human => {/* no op */},
+            options::OutputMode::Old => println!("File\tMP3 gain\tdB gain\tMax Amplitude\tMax global_gain\tMin global_gain"),
+            options::OutputMode::New => println!("File\tLoudness\tRange\tTrue_Peak\tTrue_Peak_dBTP\tReference\tWill_clip\tClip_prevent\tGain\tNew_Peak\tNew_Peak_dBTP"),
+        };
     }
 }
