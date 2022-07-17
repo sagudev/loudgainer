@@ -1,4 +1,5 @@
-use std::{process::exit, string::ParseError};
+use std::process::exit;
+use std::string::ParseError;
 
 use gumdrop::Options;
 
@@ -136,7 +137,7 @@ impl std::str::FromStr for Tagmode {
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub enum Id3v2version {
     V3,
     #[default]
@@ -184,8 +185,8 @@ pub struct Opts {
     pub files: Vec<String>,
     /// output mode
     pub output: OutputMode,
-    /// units: dB or LU
-    pub units: String,
+    /// unit: dB or LU
+    pub unit: String,
     /// Working Mode (cmd)
     pub mode: Mode,
     /// pre-gain
@@ -246,7 +247,7 @@ pub fn parse_arguments() -> Opts {
         } else {
             OutputMode::Human
         },
-        units: if opts.tagmode == Tagmode::L {
+        unit: if opts.tagmode == Tagmode::L {
             String::from("LU")
         } else {
             String::from("dB")

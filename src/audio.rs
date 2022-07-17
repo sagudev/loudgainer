@@ -1,17 +1,14 @@
 use std::path::Path;
 
 use ffmpeg_next as ffmpeg;
-
 use log::warn;
-use symphonia::core::{
-    audio::{AudioBufferRef, SampleBuffer, SignalSpec},
-    codecs::DecoderOptions,
-    formats::FormatOptions,
-    io::MediaSourceStream,
-    meta::MetadataOptions,
-    probe::Hint,
-    units::Duration,
-};
+use symphonia::core::audio::{AudioBufferRef, SampleBuffer, SignalSpec};
+use symphonia::core::codecs::DecoderOptions;
+use symphonia::core::formats::FormatOptions;
+use symphonia::core::io::MediaSourceStream;
+use symphonia::core::meta::MetadataOptions;
+use symphonia::core::probe::Hint;
+use symphonia::core::units::Duration;
 
 pub enum Audio {
     S16(Vec<i16>),
