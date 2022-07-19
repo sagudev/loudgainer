@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use ebur128::{EbuR128, Error, Mode};
-use log::warn;
+use log::{info, warn};
 
 use crate::audio::Audi;
 
@@ -19,7 +19,7 @@ pub struct ReplayGain {
 }
 
 impl ReplayGain {
-    pub fn display(&self, unit: String) {
+    pub fn display(&self, unit: &str) {
         println!("Loudness: {:8.2} LUFS", self.loudness);
         println!("Range: {:8.2} {unit}", self.loudness_range);
         println!(
@@ -39,12 +39,15 @@ impl ReplayGain {
         if new_peak > peak_limit {
             if prevent {
                 let new_new_peak = new_peak.min(peak_limit);
+                info!("Clipping prevented");
                 return Self {
                     gain: self.gain - lufs_to_dbtp(new_peak / new_new_peak),
                     ..*self
                 };
             } else if warn {
                 warn!("The track will clip!");
+            } else {
+                info!("The track will clip!");
             }
         }
 

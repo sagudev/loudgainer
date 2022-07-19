@@ -14,6 +14,7 @@ ffmpeg-static = ["ffmpeg-next/static"]
 #clap = { version = "3", features = ["derive"] }
 gumdrop = { version = "0.8", features = ["default_expr"] }
 log = "0.4"
+env_logger= "0.9"
 thiserror = "1.0"
 infer = "0.9"
 # Taggers
