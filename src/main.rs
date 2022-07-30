@@ -10,7 +10,7 @@ mod tagger;
 
 fn main() {
     let opts = options::parse_arguments();
-    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
     debug!("{:#?}", opts);
 
     match opts.output {
